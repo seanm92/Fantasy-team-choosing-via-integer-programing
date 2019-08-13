@@ -1,0 +1,95 @@
+
+import cvxpy
+import pandas as pd
+import numpy as np
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
+
+###load data
+PL = pd.read_csv(dath_path)
+
+###visualization
+point_dict = dict(zip(PL.Name,PL.Points))
+text = " ".join ([(k + " ")* v for k,v in point_dict.items()])
+wordcloud = WordCloud(max_font_size = 50, ,max_words = 100 , background_color = 'white',collocations = False).generate(text)
+plt.imshow(wordcloud)
+plt.axis("off")
+
+###auxiliary variables
+end_GK = PL.index[PL['Role']=='GK']
+end_GK = end_GK[len(end_GK)-1]
+
+end_D = PL.index[PL['Role']=='D']
+end_D = end_D[len(end_D)-1]
+
+end_M = PL.index[PL['Role']=='M']
+end_M = end_M[len(end_M)-1]
+
+###fixed input
+Budget = 100
+prices = np.array(PL['Price']) 
+points = np.array(PL['Points'])
+GoalKeepers = 2
+Defenders = 5
+Midfielders = 5
+Forwards = 3 
+
+###Desicion variabels - choose/not choose player
+selection = cvxpy.Bool(len(prices))
+
+###constraints
+#Budget 
+C1 = selection.T * prices <= Budget
+#Choose 2 Goal keepers
+C2 = selection[:(end_GK+1)].T * np.ones(end_GK+1) == GoalKeepers
+#Choose 5 Defenders
+C3 = selection[(end_GK+1):(end_D+1)].T * np.ones(end_D-end_GK) == Defenders
+#Choose 5 Midfielders
+C4 = selection[(end_D+1):(end_M+1)].T * np.ones(end_M-end_D) == Midfielders
+#Choose 3 Forwards
+C5 = selection[(end_M+1):].T * np.ones(len(prices)-end_M-1) == Forwards
+#select at most 3 players from each team
+teams = PL.Team.unique()
+lsC = []
+for t in teams:
+    lsC.append(selection[PL['Team']==t].T * np.ones(sum(PL['Team']==t))<=3)
+lsC.append(C1)
+lsC.append(C2)
+lsC.append(C3)
+lsC.append(C4)
+lsC.append(C5)
+
+###target function
+TF = selection.T*points
+
+###problem define and solve
+PL_problem = cvxpy.Problem(cvxpy.Maximize(TF), lsC)
+PL_problem.solve(solver=cvxpy.GLPK_MI)
+
+###chosen variables
+CV = selection.value
+all_players = PL['Name'].tolist()
+
+opt_team = []
+for ind,name in enumerate(all_players):
+    if CV[ind]==1:
+        opt_team.append(name)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PL_fantasy.py
+מציג את PL_fantasy.py.
